@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LDCT 判讀資料解析工具</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+
+  :root {
+    --bg: #f5f7fa;
+    --surface: #ffffff;
+    --surface2: #f0f2f5;
+    --border: #d0d7de;
+    --accent: #0969da;
+    --accent2: #cf222e;
+    --accent3: #9a6700;
+    --text: #1f2328;
+    --text2: #57606a;
+    --text3: #8c959f;
+    --ok: #1a7f37;
+    --warn: #9a6700;
+    --err: #cf222e;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'Noto Sans TC', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 2px solid var(--border);
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .logo {
+    width: 34px; height: 34px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px;
+  }
+  header h1 { font-size: 15px; font-weight: 700; }
+  header .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .header-right { margin-left: auto; }
+  .badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 12px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    background: var(--surface2);
+  }
+
+  main {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    flex: 1;
+    height: calc(100vh - 65px);
+  }
+
+  .panel {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .panel:last-child { border-right: none; background: var(--bg); }
+
+  .panel-header {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 9px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .panel-subtitle {
+    font-size: 11px;
+    color: var(--text3);
+    margin-left: auto;
+  }
+
+  .input-area { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+  textarea {
+    flex: 1;
+    background: var(--surface);
+    border: none;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.75;
+    padding: 18px;
+    resize: none;
+    outline: none;
+  }
+  textarea::placeholder { color: var(--text3); }
+
+  .meta-bar {
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    padding: 10px 18px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .meta-field { display: flex; flex-direction: column; gap: 3px; }
+  .meta-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .meta-input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 4px 8px;
+    width: 115px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .meta-input:focus { border-color: var(--accent); }
+  .meta-input.wide { width: 150px; }
+
+  .action-bar {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 10px 18px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .btn {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 16px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.12s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { background: #0550ae; }
+  .btn-secondary { background: var(--surface); color: var(--text2); border-color: var(--border); }
+  .btn-secondary:hover { border-color: var(--text2); color: var(--text); }
+  .btn-export { background: #1a7f37; color: #fff; border-color: #1a7f37; margin-left: auto; }
+  .btn-export:hover { background: #146f2f; }
+  .btn-export:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .queue-bar {
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    padding: 7px 18px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+    overflow-x: auto;
+  }
+  .queue-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
+  .queue-item {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    white-space: nowrap;
+    color: var(--text2);
+    background: var(--surface);
+    transition: all 0.1s;
+  }
+  .queue-item.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .queue-item.has-warn { border-color: var(--warn); color: var(--warn); }
+  .queue-item.done { border-color: var(--ok); color: var(--ok); }
+  .queue-item:hover:not(.active) { border-color: var(--accent); }
+
+  .result-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 18px;
+  }
+
+  .field-group { margin-bottom: 14px; }
+  .group-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    margin-bottom: 5px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .field-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(208,215,222,0.4);
+  }
+  .field-row:last-child { border-bottom: none; }
+  .field-num {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    min-width: 26px;
+    padding-top: 2px;
+  }
+  .field-name { font-size: 11px; color: var(--text2); flex: 1; min-width: 0; }
+  .field-value {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    min-width: 50px;
+    text-align: right;
+    max-width: 200px;
+    word-break: break-all;
+  }
+  .field-value.empty { color: var(--text3); }
+  .field-value.filled {
+    background: #ddf4ff;
+    color: #0550ae;
+    border: 1px solid #b6e3ff;
+  }
+  .field-value.warn {
+    background: #fff8c5;
+    color: #9a6700;
+    border: 1px solid #f7d87c;
+  }
+
+  .alert {
+    margin-bottom: 10px;
+    padding: 9px 13px;
+    border-radius: 6px;
+    font-size: 12px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .alert-warn { background: #fff8c5; border: 1px solid #f7d87c; color: #9a6700; }
+  .alert-err { background: #ffebe9; border: 1px solid #ffcecb; color: #cf222e; }
+  .alert-ok { background: #dafbe1; border: 1px solid #aceebb; color: #1a7f37; }
+
+  .empty-state {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100%; gap: 10px; color: var(--text3);
+  }
+  .empty-icon { font-size: 40px; opacity: 0.4; }
+  .empty-text { font-size: 13px; }
+
+  .status-bar {
+    background: var(--surface2);
+    border-top: 1px solid var(--border);
+    padding: 7px 18px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .status-item {
+    font-family: var(--mono);
+    font-size: 11px;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .dot-ok { background: var(--ok); }
+  .dot-warn { background: var(--warn); }
+  .dot-err { background: var(--err); }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🫁</div>
+  <h1>LDCT 判讀資料解析工具</h1>
+  <span class="tag">Lung-RADS v2022 · 90欄</span>
+  <div class="header-right">
+    <div class="badge" id="queueCount">批次：0 筆</div>
+  </div>
+</header>
+
+<main>
+  <!-- LEFT -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">📋 報告輸入</div>
+      <div class="panel-subtitle">貼入判讀報告原文</div>
+    </div>
+
+    <div class="queue-bar">
+      <div class="queue-label">批次</div>
+      <div id="queueItems" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+
+    <div class="input-area">
+      <textarea id="reportInput" placeholder="將 LDCT 判讀報告文字貼入此處...
+
+支援格式：
+  [v] 或 ■ 或 v 勾選符號
+  各放射科醫師模板皆可
+  含 Impression 段落
+
+貼入後填寫下方欄位，再點「解析」。"></textarea>
+    </div>
+
+    <div class="meta-bar">
+      <div class="meta-field">
+        <div class="meta-label">身分證字號</div>
+        <input class="meta-input wide" id="idNo" placeholder="A123456789" maxlength="10">
+      </div>
+      <div class="meta-field">
+        <div class="meta-label">姓名</div>
+        <input class="meta-input" id="patName" placeholder="姓名">
+      </div>
+      <div class="meta-field">
+        <div class="meta-label">出生日期</div>
+        <input class="meta-input" id="birthDate" placeholder="YYYYMMDD" maxlength="8">
+      </div>
+      <div class="meta-field">
+        <div class="meta-label">攝影日期</div>
+        <input class="meta-input" id="scanDate" placeholder="YYYYMMDD" maxlength="8">
+      </div>
+      <div class="meta-field">
+        <div class="meta-label">判讀日期</div>
+        <input class="meta-input" id="readDate" placeholder="YYYYMMDD" maxlength="8">
+      </div>
+      <div class="meta-field">
+        <div class="meta-label">醫院代碼</div>
+        <input class="meta-input" id="hospCode" placeholder="3831040864">
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn btn-primary" id="btnParse">⚡ 解析報告</button>
+      <button class="btn btn-secondary" id="btnAdd">＋ 加入批次</button>
+      <button class="btn btn-secondary" id="btnClear">✕ 清除</button>
+      <button class="btn btn-export" id="exportBtn" disabled>⬇ 匯出 CSV</button>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">🔍 欄位預覽</div>
+      <div class="panel-subtitle" id="resultSubtitle">等待解析</div>
+    </div>
+
+    <div class="result-area" id="resultArea">
+      <div class="empty-state">
+        <div class="empty-icon">📄</div>
+        <div class="empty-text">貼入報告並點擊「解析報告」</div>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-item"><div class="dot dot-ok"></div><span id="statFilled">已填 0</span></div>
+      <div class="status-item"><div class="dot dot-warn"></div><span id="statWarn">警告 0</span></div>
+      <div class="status-item"><div class="dot dot-err"></div><span id="statErr">錯誤 0</span></div>
+      <div class="status-item" style="margin-left:auto;color:var(--text3);font-family:var(--mono);font-size:11px;">共 90 欄</div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── Constants ──────────────────────────────────────────
+var HEADER_SHORT = ["姓名","出生日期","身分證字號/居留證號","攝影醫院代碼","攝影日期","判讀日期","判讀醫師","LDCT Quality","CTDIvol","Total DLP","In comparison with prior CT","Prior CT Date","No lung nodule","Nodule with benign features","<6mm 勾選","<6mm SE","<6mm IM","Juxtapleural nodule","≧6mm 勾選","Total number","N1 Entire Nodule (mm)","N1 Density","N1 Solid part (mm)","N1 Lobe SE","N1 Lobe IM","N1 Lobe","N1 Nodule is","N2 Entire Nodule (mm)","N2 Density","N2 Solid part (mm)","N2 Lobe SE","N2 Lobe IM","N2 Lobe","N2 Nodule is","N3 Entire Nodule (mm)","N3 Density","N3 Solid part (mm)","N3 Lobe SE","N3 Lobe IM","N3 Lobe","N3 Nodule is","Nodules else 勾選","Nodules else SE","Nodules else IM","Nodules else RUL","Nodules else RML","Nodules else RLL","Nodules else LUL","Nodules else LLL","Airway nodule","Airway-Subsegmental Cat2","Airway-Segmental proximal","Segmental-Favors secretions","Segmental-At baseline 4A","Segmental-Stable/growing 4B","Atypical cyst","Cyst Cat3","Cyst Cat3 SE","Cyst Cat3 IM","Cyst Cat3 位置","Cyst Cat4A","Cyst Cat4A SE","Cyst Cat4A IM","Cyst Cat4A 位置","Cyst Cat4B","Cyst Cat4B SE","Cyst Cat4B IM","Cyst Cat4B 位置","Metastases pattern","Emphysema","Bronchiectasis","Bronchitis/bronchiolitis","Tree-in-bud","Centrilobular nodules","Old pulmonary TB","ILD","Other Lung 勾選","Other Lung 描述","Enlarged LN 勾選","Enlarged LN 描述","CAC 勾選","CAC 描述","Abnormal chest 勾選","Abnormal chest 描述","Abdominal/neck 勾選","Abdominal/neck 描述","Overall Category","Category0 subtype","Modifier S","請至門診就診"];
+
+var HEADER_FULL = ["姓名","出生日期","身分證字號/居留證號","攝影醫院代碼","攝影日期","判讀日期","判讀醫師","LDCT Quality","CTDIvol:___mGy","Total DLP:___mGy*cm","In comparison with the prior CT","In comparison with the prior CT, Date ___(Y)/___(M)/___(D)","No lung nodule","Nodule with benign features","Lung nodule(s) (<6 mm)(For example,SE:___,IM:___)","Lung nodule(s) (<6 mm) (For example, SE:___)","Lung nodule(s) (<6 mm) (For example, IM:___)","Juxtapleural nodule.","Lung nodule(s) (≧6 mm or enlargeing>1.5mm or new≧4mm)","total number □1 □2 □3 □≧4, and described as followings請依序描述最懷疑之肺結節(Describe the most worrisome nodule in order)","Lung nodule 1 (size, character and location)-Entire Nodule: ___mm","Lung nodule 1 (size, character and location)-Density","Lung nodule 1 (size, character and location)-Density_part-solid (solid part: ___ mm)","Lung nodule 1 (size, character and location)-Lobe: SE:___, ","Lung nodule 1 (size, character and location)-Lobe: IM:___","Lung nodule 1 (size, character and location)- Lobe: (SE:___, IM:___)","Lung nodule 1 (size, character and location)-The nodule is","Lung nodule 2 (size, character and location)-Entire Nodule: ___mm","Lung nodule 2 (size, character and location)-Density","Lung nodule 2 (size, character and location)-Density_part-solid (solid part: ___ mm)","Lung nodule 2 (size, character and location)-Lobe: SE:___, ","Lung nodule 2 (size, character and location)-Lobe: IM:___","Lung nodule 2 (size, character and location)-Lobe: (SE:___, IM:___)","Lung nodule 2 (size, character and location)-The nodule is","Lung nodule 3 (size, character and location)-Entire Nodule: ___mm","Lung nodule 3 (size, character and location)-Density","Lung nodule 3 (size, character and location)-Density_part-solid (solid part: ___ mm)","Lung nodule 3 (size, character and location)-Lobe: SE:___, ","Lung nodule 3 (size, character and location)-Lobe: IM:___","Lung nodule 3 (size, character and location)- Lobe: (SE:___, IM:___)","Lung nodule 3 (size, character and location)-The nodule is","Lung nodules else","Lung nodules else-(SE:___)","Lung nodules else-(IM:___)","Lung nodules else-RUL","Lung nodules else-RML","Lung nodules else-RLL","Lung nodules else-LUL","Lung nodules else-LLL","Airway nodule","Airway nodule-Subsegmental (Category 2)","Airway nodule-Segmental or more proximal","Segmental or more proximal - Favors secretions (Category 2)","Segmental or more proximal - At baseline (Category 4A)","Segmental or more proximal - Stable or growing (Category 4B)","Atypical pulmonary cyst","Atypical pulmonary cyst-Category 3","Atypical pulmonary cyst-Category 3-Lobe: SE:___, ","Atypical pulmonary cyst-Category 3-Lobe: IM:___","Atypical pulmonary cyst-Category 3-位置","Atypical pulmonary cyst-Category 4A","Atypical pulmonary cyst-Category 4A-Lobe: SE:___, ","Atypical pulmonary cyst-Category 4A-Lobe: IM:___","Atypical pulmonary cyst-Category 4A-位置","Atypical pulmonary cyst-Category 4B","Atypical pulmonary cyst-Category 4B-Lobe: SE:___, ","Atypical pulmonary cyst-Category 4B-Lobe: IM:___","Atypical pulmonary cyst-Category 4B-位置","The pattern of lung nodules has the higher probability of metastases","Other Lung Findings-Emphysema","Other Lung Findings-Bronchiectasis","Other Lung Findings-Bronchitis/bronchiolitis","Other Lung Findings-Tree-in-bud pattern","Other Lung Findings-Centrilobular nodules","Other Lung Findings-Old pulmonary TB","Interstitial lung disease (ILD)","Other Lung Findings-非上述之Other Lung Findings(勾選)","Other Lung Findings-非上述之Other Lung Findings(敘述)","Other Findings-Enlarged lymph nodes,location___(勾選)","Other Findings-Enlarged lymph nodes,location___(敘述)","Other Findings-Coronary artery calcification(勾選)","Other Findings-Coronary artery calcification___(敘述)","Other Findings-Other significant abnormal chest findings___(勾選)","Other Findings-Other significant abnormal chest findings___(敘述)","Other Findings-Other significant abnormal abdominal or neck findings in this chest CT scan___(勾選)","Other Findings-Other significant abnormal abdominal or neck findings in this chest CT scan___(敘述)","Overall recommendation-判讀結果","Overall recommendation-判讀結果-Category0","Overall recommendation-Category S: Other. Clinically significant or potentially clinically significant findings (non lung cancer).","Overall recommendation-請至門診就診"];
+
+var GROUPS = [
+  { title: '基本資料', cols: [0,1,2,3,4,5,6] },
+  { title: 'CT 技術參數', cols: [7,8,9,10,11] },
+  { title: '結節發現 - 基本', cols: [12,13,14,15,16,17,18,19] },
+  { title: '結節 1', cols: [20,21,22,23,24,25,26] },
+  { title: '結節 2', cols: [27,28,29,30,31,32,33] },
+  { title: '結節 3', cols: [34,35,36,37,38,39,40] },
+  { title: '其餘結節 (Else)', cols: [41,42,43,44,45,46,47,48] },
+  { title: 'Airway nodule', cols: [49,50,51,52,53,54] },
+  { title: 'Atypical pulmonary cyst', cols: [55,56,57,58,59,60,61,62,63,64,65,66,67,68] },
+  { title: 'Other Lung Findings', cols: [69,70,71,72,73,74,75,76,77] },
+  { title: 'Other Findings', cols: [78,79,80,81,82,83,84,85] },
+  { title: 'Overall Recommendation', cols: [86,87,88,89] }
+];
+
+// ── Parser ─────────────────────────────────────────────
+function chk(text, pattern) {
+  return new RegExp(pattern, 'i').test(text);
+}
+
+function extractMGy(text, label) {
+  var re = new RegExp(label + '[:\\s_]*_+?([\\d\\.]+)', 'i');
+  var m = text.match(re);
+  return m ? m[1] : '';
+}
+
+function extractSE(line) {
+  var m = line.match(/SE:\s*(\d+)/i);
+  return m ? m[1] : '';
+}
+
+function extractIM(line) {
+  // 支援: IM: 174, 177, 178 / IM:236; 277 / IM:_117 232 245_
+  var m = line.match(/IM:\s*_*([\d][\d,;\s\._]*)/i);
+  if (!m) return '';
+  var raw = m[1].replace(/_/g, ' ').trim();
+  raw = raw.replace(/[^\d;,\s]+$/, '').trim();
+  return raw.replace(/[,;]+\s*/g, ';').replace(/\s+/g, ';').replace(/;+/g, ';').replace(/;$/, '');
+}
+
+function lobeCode(text) {
+  if (/\bRUL\b/i.test(text)) return '1';
+  if (/\bRML\b/i.test(text)) return '2';
+  if (/\bRLL\b/i.test(text)) return '3';
+  if (/\bLUL\b/i.test(text)) return '4';
+  if (/\bLLL\b/i.test(text)) return '5';
+  return '';
+}
+
+function densityCode(text) {
+  if (/non.solid/i.test(text)) return '1';
+  if (/part.solid/i.test(text)) return '2';
+  if (/\bsolid\b/i.test(text)) return '3';
+  return '';
+}
+
+function solidPart(text) {
+  var m = text.match(/solid part[:\s]+([0-9\.]+)\s*mm/i);
+  return m ? m[1] : '';
+}
+
+function parseRocDate(text) {
+  // 支援: 民國 107 (Y)/11 (M)/20 (D) 或 114(Y)/6(M)/10(D) 或 109  (Y)/  08  (M)/  30  (D)
+  var m = text.match(/民國\s*(\d{2,3})\s*\(?Y\)?\s*[\/.\-]?\s*(\d{1,2})\s*\(?M\)?\s*[\/.\-]?\s*(\d{1,2})/i);
+  if (!m) {
+    // fallback: 民國 107 (Y)/11(M)/20(D) style without year in parens
+    m = text.match(/民國[^\d]*(\d{2,3})[^\d]+(\d{1,2})[^\d]+(\d{1,2})/);
+  }
+  if (!m) return '';
+  var y = parseInt(m[1]) + 1911;
+  return '' + y + m[2].padStart(2,'0') + m[3].padStart(2,'0');
+}
+
+function getNoduleSection(text, n) {
+  var startRe = new RegExp('Lung nodule ' + n + '\\s*\\(size|\\[v\\]\\s*Lung nodule ' + n + '|■\\s*Lung nodule ' + n + '|^v\\s+Lung nodule ' + n, 'im');
+  var endRe = new RegExp('Lung nodule ' + (n+1) + '\\b|Lung nodules else|Airway nodule|Atypical|Other Lung|Overall', 'i');
+  var sm = text.search(startRe);
+  if (sm < 0) return '';
+  var rest = text.slice(sm + 5);
+  var em = rest.search(endRe);
+  return em > 0 ? text.slice(sm, sm + 5 + em) : text.slice(sm);
+}
+
+function noduleIsCode(sec, hasPrior) {
+  if (!hasPrior || /no prior/i.test(sec)) return '4';
+  if (/newly found/i.test(sec)) return '3';
+  if (/enlarging/i.test(sec)) return '2';
+  if (/unchanged/i.test(sec)) return '1';
+  return '4';
+}
+
+function doParseReport(text, meta) {
+  var row = new Array(90).fill('');
+
+  row[0] = meta.name || '';
+  row[1] = meta.birth || '';
+  row[2] = meta.id || '';
+  row[3] = meta.hosp || '';
+  row[4] = meta.scan || '';
+  row[5] = meta.read || '';
+
+  // Doctor
+  var dm = text.match(/([^\s\n　]{2,6})醫師/);
+  if (dm) row[6] = dm[1];
+
+  // Quality - 找 Quality 那一行，判斷哪個選項被勾
+  var qualLine = text.match(/LDCT Quality[^\n]*/i);
+  if (qualLine) {
+    var ql = qualLine[0];
+    // Not Acceptable 要先判（避免誤抓 Acceptable）
+    if (/(■|\[v\]|(?:^|\s)v\s)\s*Not Acceptable/i.test(ql)) row[7] = '3';
+    else if (/(■|\[v\]|(?:^|\s)v\s)\s*Acceptable/i.test(ql)) row[7] = '2';
+    else if (/(■|\[v\]|(?:^|\s)v\s)\s*Good/i.test(ql)) row[7] = '1';
+  }
+
+  row[8] = extractMGy(text, 'CTDIvol');
+  row[9] = extractMGy(text, 'Total DLP');
+
+  // hasPrior: 如果有明確勾選 No prior = false; 否則看有無民國日期
+  var nopriorLine = text.match(/No prior chest CT[^\n]*/i);
+  var hasPrior;
+  if (nopriorLine && /(■|\[v\]|(?:^|[ \t])v[ \t])/i.test(nopriorLine[0])) {
+    hasPrior = false;
+  } else if (/民國\s*\d{2,3}\s*\(?Y\)?/i.test(text) && !/民國\s*[_\s]*\(?Y\)?/i.test(text)) {
+    hasPrior = true;
+  } else {
+    hasPrior = false;
+  }
+  row[10] = hasPrior ? '1' : '0';
+  if (hasPrior) row[11] = parseRocDate(text);
+
+  if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*No lung nodule/im.test(text)) row[12] = 'T';
+  if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*Nodule with benign/im.test(text)) row[13] = 'T';
+
+  // <6mm
+  if (/(\[v\]|■|^v\s)\s*Lung nodule[^≧≥<\n]*<\s*6\s*mm|Lung nodule\(s\)\s*\(<6mm\)/im.test(text)) {
+    row[14] = 'T';
+    var lt6line = text.match(/Lung nodule[^\n]*<\s*6[^\n]*/i);
+    if (lt6line) { row[15] = extractSE(lt6line[0]); row[16] = extractIM(lt6line[0]); }
+  }
+
+  if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*Juxta.?pleural/im.test(text)) row[17] = 'T';
+
+  // ≥6mm
+  if (/(\[v\]|■|^v\s)\s*Lung nodule[^\n]*[≧≥]\s*6/im.test(text)) {
+    row[18] = 'T';
+    // total number
+    if (/\[v\]\s*>=4|■\s*>=4|■\s*≧4|\[v\]\s*≧4/i.test(text)) row[19] = '4';
+    else if (/\[v\]\s*3\b|■\s*3\b/i.test(text) && /total number/i.test(text)) row[19] = '3';
+    else if (/\[v\]\s*2\b|■\s*2\b/i.test(text) && /total number/i.test(text)) row[19] = '2';
+    else if (/\[v\]\s*1\b|■\s*1\b/i.test(text) && /total number/i.test(text)) row[19] = '1';
+    // fallback from text
+    if (!row[19]) {
+      var tnm = text.match(/total number[^0-9≥≧]*([1-4]|[≥≧]\s*4)/i);
+      if (tnm) {
+        var t = tnm[1].trim();
+        row[19] = (t === '1') ? '1' : (t === '2') ? '2' : (t === '3') ? '3' : '4';
+      }
+    }
+  }
+
+  // Nodules 1-3
+  for (var n = 1; n <= 3; n++) {
+    var sec = getNoduleSection(text, n);
+    if (!sec) continue;
+    var sizeM = sec.match(/Entire Nodule:\s*([\d\.]+)/i);
+    if (!sizeM) continue;
+    var base = (n-1)*7 + 20;
+    row[base] = sizeM[1];
+    var dens = densityCode(sec);
+    row[base+1] = dens;
+    if (dens === '2') row[base+2] = solidPart(sec);
+    var seM = sec.match(/SE:\s*(\d+)/i);
+    var imM = sec.match(/IM:\s*([\d,;\.]+)/i);
+    if (seM) row[base+3] = seM[1];
+    if (imM) row[base+4] = imM[1].replace(/,/g,';');
+    // Lobe
+    var lobeM = sec.match(/(\[v\]|■)\s*(RUL|RML|RLL|LUL|LLL)/i);
+    if (lobeM) {
+      var lb = lobeM[2].toUpperCase();
+      row[base+5] = {RUL:'1',RML:'2',RLL:'3',LUL:'4',LLL:'5'}[lb] || '';
+    }
+    row[base+6] = noduleIsCode(sec, hasPrior);
+  }
+
+  // Nodules else
+  var elseM = text.match(/(\[v\]|■)\s*Lung nodules else([^\n]*)/i);
+  if (elseM) {
+    var el = elseM[0];
+    row[41] = 'T';
+    row[42] = extractSE(el);
+    row[43] = extractIM(el);
+    if (/(\[v\]|■)\s*RUL/i.test(el)) row[44] = 'T';
+    if (/(\[v\]|■)\s*RML/i.test(el)) row[45] = 'T';
+    if (/(\[v\]|■)\s*RLL/i.test(el)) row[46] = 'T';
+    if (/(\[v\]|■)\s*LUL/i.test(el)) row[47] = 'T';
+    if (/(\[v\]|■)\s*LLL/i.test(el)) row[48] = 'T';
+  }
+
+  // Airway
+  if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*Airway nodule/im.test(text)) {
+    row[49] = 'T';
+    if (/(\[v\]|■)\s*Subsegmental/i.test(text)) row[50] = 'T';
+    if (/(\[v\]|■)\s*Segmental or more proximal/i.test(text)) {
+      row[51] = 'T';
+      if (/(\[v\]|■)\s*Favors\s*sec/i.test(text)) row[52] = 'T';
+      if (/(\[v\]|■)\s*At baseline/i.test(text)) row[53] = 'T';
+      if (/(\[v\]|■)\s*Stable or growing/i.test(text)) row[54] = 'T';
+    }
+  }
+
+  // Atypical cyst
+  if (/(\[v\]|■)\s*Atypical pulmonary cyst/i.test(text)) {
+    row[55] = 'T';
+    var cystBlock = text.match(/Atypical pulmonary cyst([\s\S]*?)(?:The pattern|Other Lung|Overall|$)/i);
+    var cb = cystBlock ? cystBlock[0] : text;
+    if (/(\[v\]|■)\s*Category 3/i.test(cb)) {
+      row[56] = 'T';
+      var c3l = cb.match(/Category 3[^\n]*/i);
+      if (c3l) { row[57] = extractSE(c3l[0]); row[58] = extractIM(c3l[0]); row[59] = lobeCode(c3l[0]); }
+    }
+    if (/(\[v\]|■)\s*Category 4A/i.test(cb)) {
+      row[60] = 'T';
+      var c4al = cb.match(/Category 4A[^\n]*/i);
+      if (c4al) { row[61] = extractSE(c4al[0]); row[62] = extractIM(c4al[0]); row[63] = lobeCode(c4al[0]); }
+    }
+    if (/(\[v\]|■)\s*Category 4B/i.test(cb)) { row[64] = 'T'; }
+  }
+
+  // Other Lung Findings
+  if (/(\[v\]|■)\s*Emphysema/i.test(text)) row[69] = 'T';
+  if (/(\[v\]|■)\s*Bronchiectasis/i.test(text)) row[70] = 'T';
+  if (/(\[v\]|■)\s*Bronchitis\/bronchiolitis/i.test(text)) row[71] = 'T';
+  if (/(\[v\]|■)\s*Tree-in-bud/i.test(text)) row[72] = 'T';
+  if (/(\[v\]|■)\s*Centrilobular/i.test(text)) row[73] = 'T';
+  if (/(\[v\]|■)\s*Old pulmonary TB/i.test(text)) row[74] = 'T';
+  if (/(\[v\]|■)\s*Interstitial lung disease/i.test(text)) row[75] = 'T';
+
+  // Other Lung: 支援 "■ Other: xxx" 和 "■ Paraseptal bullae..." 非標準格式
+  var otherLungM = text.match(/(\[v\]|■|(?:^|[ \t])v[ \t])\s*Other:\s*([^\n\[\]■□]+)/im);
+  if (otherLungM) {
+    var otxt = otherLungM[2].trim();
+    if (!/^_+$/.test(otxt) && otxt.length > 1) { row[76] = 'T'; row[77] = otxt.replace(/,/g,' '); }
+  }
+  // 非標準: Other Lung Findings 段落內的 ■ 勾選但不是標準欄位的文字
+  if (!row[76]) {
+    var otherBlock = text.match(/Other Lung Findings[\s\S]*?(?=Other Findings|Overall)/i);
+    if (otherBlock) {
+      var nonStdM = otherBlock[0].match(/(■|\[v\])\s*([A-Z][^\n■□\[\]]{5,})/ig);
+      if (nonStdM) {
+        var stdFields = /Emphysema|Bronchiectasis|Bronchitis|Tree-in-bud|Centrilobular|Old pulmonary TB|Interstitial|ILD|Other/i;
+        var extras = nonStdM.filter(function(m){ return !stdFields.test(m); });
+        if (extras.length) {
+          row[76] = 'T';
+          row[77] = extras.map(function(m){ return m.replace(/^(■|\[v\])\s*/,'').trim(); }).join('. ');
+        }
+      }
+    }
+  }
+
+  // Other Findings
+  if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*Enlarged lymph nodes/im.test(text)) {
+    row[78] = 'T';
+    var lnm = text.match(/Enlarged lymph nodes[^:\n]*:\s*([^\n]+)/i);
+    if (lnm && !/^_+$/.test(lnm[1].trim())) row[79] = lnm[1].trim().replace(/,/g,' ');
+  }
+  if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*Coronary artery calc/im.test(text)) {
+    row[80] = 'T';
+    var cacm = text.match(/Coronary artery calc[^:\n]*:?\s*([^\n\[■□]+)/i);
+    if (cacm) { var cv = cacm[1].trim(); if (!/^_+$/.test(cv) && cv.length > 1) row[81] = cv.replace(/,/g,' '); }
+  }
+  if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*Other significant abnormal chest/im.test(text)) {
+    row[82] = 'T';
+    var chm = text.match(/Other significant abnormal chest[^:\n]*:\s*([^\n\[■□]+)/i);
+    if (chm && !/^_+$/.test(chm[1].trim())) row[83] = chm[1].trim().replace(/,/g,' ');
+  }
+  if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*Other significant abnormal abdominal/im.test(text)) {
+    row[84] = 'T';
+    // 描述可能跨行（abdominal or neck findings 後換行繼續）
+    var abm = text.match(/Other significant abnormal abdominal[^\n]*(?:\n[ \t]+or neck[^\n]*)?[^\n]*:\s*([^\n\[■□]+(?:\n[ \t]+[^\n\[■□_]+)*)/i);
+    if (abm) {
+      var abv = abm[1].replace(/\n[ \t]+/g,' ').trim();
+      if (!/^_+$/.test(abv) && abv.length > 1) row[85] = abv.replace(/,/g,' ');
+    }
+  }
+
+  // Extra non-standard fields (S/p cholecystectomy, Rib fracture etc)
+  var extraItems = [];
+  if (/(\[v\]|■)\s*S\/p cholecystectomy/i.test(text)) extraItems.push('S/p cholecystectomy');
+  if (/(\[v\]|■)\s*Rib old fracture/i.test(text)) extraItems.push('Rib old fracture noted over right thoracic cage');
+  if (extraItems.length) {
+    row[82] = 'T';
+    row[83] = (row[83] ? row[83] + ' ' : '') + extraItems.join('. ') + '.';
+  }
+
+  // Overall Category - 找 Overall recommendation 段落後的勾選
+  // 支援 [v], ■, v 三種格式
+  var CHK = '(\\[v\\]|■|(?:^|\\s)v\\s)';
+  var overallBlock = text.match(/Overall recommendation[\s\S]*$/i);
+  var ob = overallBlock ? overallBlock[0] : text;
+  var chkRe = function(pat) { return new RegExp(CHK + '\\s*' + pat, 'im').test(ob); };
+  if (chkRe('Category 4X')) row[86] = '9';
+  else if (chkRe('Category 4B')) row[86] = '8';
+  else if (chkRe('Category 4A') && !row[55]) row[86] = '4';
+  else if (chkRe('Category 3')) row[86] = '3';
+  else if (chkRe('Category 2')) row[86] = '2';
+  else if (chkRe('Category 1')) row[86] = '1';
+  else if (chkRe('Category 0')) {
+    row[86] = '0';
+    if (new RegExp(CHK + '\\s*Prior chest CT exam.*being located', 'im').test(ob)) row[87] = '1';
+    else if (new RegExp(CHK + '\\s*Part or all', 'im').test(ob)) row[87] = '2';
+    else if (new RegExp(CHK + '\\s*Findings suggestive', 'im').test(ob)) row[87] = '3';
+  }
+
+  if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*(Modifier S|Category S)/im.test(text)) row[88] = 'T';
+  if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*請至門診就診/im.test(text)) row[89] = 'T';
+
+  return row;
+}
+
+// ── Validate ───────────────────────────────────────────
+function validate(row) {
+  var warns = [], errs = [];
+  if (row[2] && row[2].length !== 10) warns.push('身分證字號長度 ' + row[2].length + ' 碼（應為 10 碼）：' + row[2]);
+  if (!row[7]) errs.push('LDCT Quality 未填');
+  if (!row[8]) errs.push('CTDIvol 未填');
+  if (!row[9]) errs.push('Total DLP 未填');
+  if (!row[86]) errs.push('Overall Category 未填');
+  if (row[10] === '1' && !row[11]) warns.push('有 Prior CT 但日期未解析，請手動填入');
+  if (row[86] === '0' && !row[87]) warns.push('Category 0 但 subtype 未填');
+  if (row[18] === 'T' && row[19]) {
+    var t = row[19];
+    if ((t==='2'||t==='3'||t==='4') && !row[27]) warns.push('Total=' + t + ' 但 Nodule 2 無資料');
+    if ((t==='3'||t==='4') && !row[34]) warns.push('Total=' + t + ' 但 Nodule 3 無資料');
+    if (t==='4' && row[41]!=='T') warns.push('Total≥4 但 Nodules else 未勾選');
+  }
+  if (row[8] && row[9]) {
+    var ratio = parseFloat(row[9]) / parseFloat(row[8]);
+    if (ratio < 20 || ratio > 90) warns.push('DLP/CTDIvol 比值 ' + ratio.toFixed(1) + '，超出 20-90 範圍');
+  }
+  return { warns: warns, errs: errs };
+}
+
+// ── Render ─────────────────────────────────────────────
+function escH(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function renderResult(row) {
+  var v = validate(row);
+  var html = '';
+
+  if (v.errs.length) html += v.errs.map(function(e){ return '<div class="alert alert-err">❌ '+e+'</div>'; }).join('');
+  if (v.warns.length) html += v.warns.map(function(w){ return '<div class="alert alert-warn">⚠️ '+w+'</div>'; }).join('');
+  if (!v.errs.length && !v.warns.length) html += '<div class="alert alert-ok">✅ 解析完成，無異常</div>';
+
+  for (var g = 0; g < GROUPS.length; g++) {
+    var grp = GROUPS[g];
+    html += '<div class="field-group">';
+    html += '<div class="group-title">' + grp.title + '</div>';
+    for (var ci = 0; ci < grp.cols.length; ci++) {
+      var i = grp.cols[ci];
+      var val = row[i];
+      var cls = val ? 'filled' : 'empty';
+      html += '<div class="field-row">';
+      html += '<div class="field-num">' + (i+1) + '</div>';
+      html += '<div class="field-name">' + escH(HEADER_SHORT[i]) + '</div>';
+      html += '<div class="field-value '+cls+'">' + escH(val || '—') + '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  document.getElementById('resultArea').innerHTML = html;
+  document.getElementById('statFilled').textContent = '已填 ' + row.filter(function(v){return v;}).length;
+  document.getElementById('statWarn').textContent = '警告 ' + v.warns.length;
+  document.getElementById('statErr').textContent = '錯誤 ' + v.errs.length;
+  document.getElementById('resultSubtitle').textContent = row[2] ? '身分證：' + row[2] : '預覽中';
+}
+
+// ── State ──────────────────────────────────────────────
+var currentRow = null;
+var batchQueue = [];
+var currentQueueIdx = -1;
+
+function getMeta() {
+  return {
+    name: document.getElementById('patName').value.trim(),
+    birth: document.getElementById('birthDate').value.trim(),
+    id: document.getElementById('idNo').value.trim(),
+    hosp: document.getElementById('hospCode').value.trim(),
+    scan: document.getElementById('scanDate').value.trim(),
+    read: document.getElementById('readDate').value.trim()
+  };
+}
+
+function doParse() {
+  var text = document.getElementById('reportInput').value;
+  if (!text.trim()) { alert('請先貼入報告文字'); return; }
+  currentRow = doParseReport(text, getMeta());
+  renderResult(currentRow);
+}
+
+function doAdd() {
+  var text = document.getElementById('reportInput').value;
+  if (!text.trim()) { alert('請先貼入報告文字'); return; }
+  var meta = getMeta();
+  var row = doParseReport(text, meta);
+  var v = validate(row);
+  var label = row[2] || ('Case ' + (batchQueue.length + 1));
+  batchQueue.push({ row: row, meta: meta, text: text, warns: v.warns, errs: v.errs, label: label });
+  renderQueue();
+  document.getElementById('exportBtn').disabled = false;
+  document.getElementById('queueCount').textContent = '批次：' + batchQueue.length + ' 筆';
+  doClear();
+}
+
+function doClear() {
+  document.getElementById('reportInput').value = '';
+  document.getElementById('idNo').value = '';
+  document.getElementById('patName').value = '';
+  document.getElementById('birthDate').value = '';
+  document.getElementById('scanDate').value = '';
+  document.getElementById('readDate').value = '';
+  currentRow = null;
+  currentQueueIdx = -1;
+  document.getElementById('resultArea').innerHTML = '<div class="empty-state"><div class="empty-icon">📄</div><div class="empty-text">貼入報告並點擊「解析報告」</div></div>';
+  document.getElementById('statFilled').textContent = '已填 0';
+  document.getElementById('statWarn').textContent = '警告 0';
+  document.getElementById('statErr').textContent = '錯誤 0';
+  document.getElementById('resultSubtitle').textContent = '等待解析';
+  renderQueue();
+}
+
+function renderQueue() {
+  var c = document.getElementById('queueItems');
+  c.innerHTML = batchQueue.map(function(item, i) {
+    var cls = 'queue-item';
+    if (i === currentQueueIdx) cls += ' active';
+    else if (item.errs.length) cls += ' has-warn';
+    else cls += ' done';
+    return '<div class="'+cls+'" onclick="previewQ('+i+')">' + escH(item.label) + '</div>';
+  }).join('');
+}
+
+function previewQ(idx) {
+  currentQueueIdx = idx;
+  var item = batchQueue[idx];
+  document.getElementById('reportInput').value = item.text;
+  document.getElementById('idNo').value = item.meta.id || '';
+  document.getElementById('patName').value = item.meta.name || '';
+  document.getElementById('birthDate').value = item.meta.birth || '';
+  document.getElementById('scanDate').value = item.meta.scan || '';
+  document.getElementById('readDate').value = item.meta.read || '';
+  document.getElementById('hospCode').value = item.meta.hosp || '';
+  currentRow = item.row;
+  renderResult(item.row);
+  renderQueue();
+}
+
+function doExport() {
+  if (!batchQueue.length) { alert('尚未加入任何筆次'); return; }
+  var rows = [HEADER_FULL].concat(batchQueue.map(function(item){ return item.row; }));
+  var csv = rows.map(function(r) {
+    return r.map(function(v) {
+      var s = String(v);
+      if (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0)
+        return '"' + s.replace(/"/g,'""') + '"';
+      return s;
+    }).join(',');
+  }).join('\r\n');
+  var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  var d = new Date();
+  var ds = '' + d.getFullYear() + ('0'+(d.getMonth()+1)).slice(-2) + ('0'+d.getDate()).slice(-2);
+  a.download = 'LDCTA_batch_' + ds + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ── Bind buttons ───────────────────────────────────────
+document.getElementById('btnParse').addEventListener('click', doParse);
+document.getElementById('btnAdd').addEventListener('click', doAdd);
+document.getElementById('btnClear').addEventListener('click', doClear);
+document.getElementById('exportBtn').addEventListener('click', doExport);
+window.previewQ = previewQ;
+</script>
+</body>
+</html>
