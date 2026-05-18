@@ -67,7 +67,7 @@ textarea::placeholder{color:var(--t3)}
 <header>
   <div class="logo">🫁</div>
   <h1>LDCT 判讀資料解析工具</h1>
-  <span class="tag">Lung-RADS v2022 · 90欄</span><span class="tag">v1.0.0</span>
+  <span class="tag">Lung-RADS v2022 · 90欄</span><span class="tag">v1.0.1</span>
   <div class="hright"><div class="badge" id="qCount">批次：0 筆</div></div>
 </header>
 <main>
@@ -164,14 +164,23 @@ function getMGy(text, label) {
 }
 
 function getRocDate(text) {
-  // 民國 107 (Y)/11 (M)/20 (D) 或 114(Y)/6(M)/10(D) 或 109  (Y)/  08  (M)/  30  (D)
-  var m = text.match(/民國\s*(\d{2,3})\s*\(?Y\)?\s*[\/\-]?\s*(\d{1,2})\s*\(?M\)?\s*[\/\-]?\s*(\d{1,2})/i);
+  var m = null;
+  // 1. 民國 107 (Y)/11 (M)/20 (D) 或 114(Y)/6(M)/10(D)
+  m = text.match(/民國\s*(\d{2,3})\s*\(?Y\)?\s*[\/\-]?\s*(\d{1,2})\s*\(?M\)?\s*[\/\-]?\s*(\d{1,2})/i);
   if (!m) m = text.match(/民國\D*(\d{2,3})\D+(\d{1,2})\D+(\d{1,2})/);
+  // 2. 純數字格式 113(Y)/2(M)/7(D)（在 comparison 行，無「民國」）
+  if (!m) {
+    var cl = text.match(/comparison[^\n]*/i);
+    if (cl) m = cl[0].match(/(\d{2,3})\s*\(?Y\)?\s*\/\s*(\d{1,2})\s*\(?M\)?\s*\/\s*(\d{1,2})/i);
+  }
   if (!m) return '';
-  // 確認是實際有填數字（非空白格）— 民國後面緊接空白+Y表示未填
-  if (/民國[\s\t_]*\(?Y\)?/.test(text.match(/民國[^\n]*/)[0].slice(0,15))) return '';
-  var y = parseInt(m[1]) + 1911;
-  return '' + y + ('0'+m[2]).slice(-2) + ('0'+m[3]).slice(-2);
+  var yr=parseInt(m[1]), mo=parseInt(m[2]), dy=parseInt(m[3]);
+  // 合理性檢查
+  if (yr<80||mo<1||mo>12||dy<1||dy>31) return '';
+  // 民國年後緊跟空白+Y 表示未填（如 民國    (Y)）
+  var rocLine = text.match(/民國[^\n]*/);
+  if (rocLine && /民國[\s\t_]*\(?Y\)?/.test(rocLine[0].slice(0,12))) return '';
+  return '' + (yr+1911) + ('0'+mo).slice(-2) + ('0'+dy).slice(-2);
 }
 
 function getDensity(s) {
@@ -266,11 +275,12 @@ function doParseReport(text, meta) {
   var dm = text.match(/([^\s\n　]{2,5})醫師/);
   if (dm) row[6] = dm[1];
 
-  // ── Quality ── 找 Quality 那一行，判斷哪個被勾
-  var ql = (text.match(/LDCT Quality[^\n]*/i) || [''])[0];
-  if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*Not Acceptable/i.test(ql)) row[7] = '3';
-  else if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*Acceptable/i.test(ql)) row[7] = '2';
-  else if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*Good/i.test(ql)) row[7] = '1';
+  // ── Quality ── 優先找 LDCT Quality 那行，找不到時搜全文
+  var qlm = text.match(/LDCT Quality[^\n]*/i);
+  var ql = qlm ? qlm[0] : text;
+  if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*Not Acceptable/im.test(ql)) row[7] = '3';
+  else if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*Acceptable/im.test(ql)) row[7] = '2';
+  else if (/(\[v\]|■|(?:^|[ \t])v[ \t])\s*Good/im.test(ql)) row[7] = '1';
 
   // ── CTDIvol / DLP ──
   row[8] = getMGy(text, 'CTDIvol');
