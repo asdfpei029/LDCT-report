@@ -67,7 +67,7 @@ textarea::placeholder{color:var(--t3)}
 <header>
   <div class="logo">🫁</div>
   <h1>LDCT 判讀資料解析工具</h1>
-  <span class="tag">Lung-RADS v2022 · 90欄</span><span class="tag">v1.0.1</span>
+  <span class="tag">Lung-RADS v2022 · 90欄</span><span class="tag">v1.0.2</span>
   <div class="hright"><div class="badge" id="qCount">批次：0 筆</div></div>
 </header>
 <main>
@@ -444,14 +444,14 @@ function doParseReport(text, meta) {
   }
   if (lineChk(text,'Other significant abnormal chest')) {
     row[82]='T';
-    var chd = getDesc(text,'Other significant abnormal chest[^:\\n]*');
-    row[83] = chd;
+    var chdM = text.match(/(?:\[v\]|■|(?:(?:^|[ \t])v[ \t]))\s*Other significant abnormal chest[^:\n]*:\s*([^\n\[■□_][^\n]+)/im);
+    if (chdM) { var cv = chdM[1].trim(); if (cv.length>1) row[83]=cv; }
   }
-  // Abdominal — 可能跨行 (abdominal\n  or neck)
-  var abMatch = text.match(/(\[v\]|■|(?:(?:^|[ \t])v[ \t]))\s*Other significant abnormal abdominal([^\n]*(?:\n[ \t]+or neck[^\n]*)?[^\n]*:?\s*)([^\n\[■□]+)/im);
+  // Abdominal — 直接找冒號後的描述文字
+  var abMatch = text.match(/(?:\[v\]|■|(?:(?:^|[ \t])v[ \t]))\s*Other significant abnormal abdominal[^:\n]*:\s*([^\n\[■□_][^\n]+)/im);
   if (abMatch) {
     row[84]='T';
-    var abv = abMatch[3].trim();
+    var abv = abMatch[1].trim();
     if (!/^[_\s]+$/.test(abv) && abv.length>1) row[85]=abv;
   }
 
