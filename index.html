@@ -67,7 +67,7 @@ textarea::placeholder{color:var(--t3)}
 <header>
   <div class="logo">🫁</div>
   <h1>LDCT 判讀資料解析工具</h1>
-  <span class="tag">Lung-RADS v2022 · 90欄</span><span class="tag">v1.0.2</span>
+  <span class="tag">Lung-RADS v2022 · 90欄</span><span class="tag">v1.0.3</span>
   <div class="hright"><div class="badge" id="qCount">批次：0 筆</div></div>
 </header>
 <main>
@@ -147,9 +147,12 @@ function getSE(s) {
 
 function getIM(s) {
   // 抓 IM: 後的數字序列，支援逗號/分號/空格/底線混用
+  // 遇到 ) 截斷（處理「IM: 72) or definitely benign...」格式）
   var m = s.match(/IM:\s*_*([\d][\d,;\s._]*)/i);
   if (!m) return '';
   var raw = m[1].replace(/_/g,' ').trim();
+  // 遇到 ) 截斷
+  raw = raw.split(')')[0].trim();
   // 移除尾端非數字
   raw = raw.replace(/[^\d;,\s]+$/,'').trim();
   // 統一為分號分隔，無空格
@@ -271,9 +274,13 @@ function doParseReport(text, meta) {
   row[4] = meta.scan || '';
   row[5] = meta.read || '';
 
-  // 判讀醫師
-  var dm = text.match(/([^\s\n　]{2,5})醫師/);
+  // 判讀醫師 — 優先找 XX醫師-放診專醫字 格式，避免抓到「您的醫師討論」
+  var dm = text.match(/([^\s\n　「」。，、]{2,6})醫師[-－]放診專醫字/);
   if (dm) row[6] = dm[1];
+  else {
+    var dm2 = text.match(/(?<!您的)([^\s\n　「」。，、]{2,5})醫師(?!討論)/);
+    if (dm2) row[6] = dm2[1];
+  }
 
   // ── Quality ── 優先找 LDCT Quality 那行，找不到時搜全文
   var qlm = text.match(/LDCT Quality[^\n]*/i);
@@ -444,15 +451,30 @@ function doParseReport(text, meta) {
   }
   if (lineChk(text,'Other significant abnormal chest')) {
     row[82]='T';
-    var chdM = text.match(/(?:\[v\]|■|(?:(?:^|[ \t])v[ \t]))\s*Other significant abnormal chest[^:\n]*:\s*([^\n\[■□_][^\n]+)/im);
-    if (chdM) { var cv = chdM[1].trim(); if (cv.length>1) row[83]=cv; }
+    // 支援冒號、底線、跨行格式
+    var chdM = text.match(/(?:\[v\]|■|(?:(?:^|[ \t])v[ \t]))\s*Other significant abnormal chest[^:\n_]*[:\s_]+\s*([^\n\[■□_][^\n]+(?:\n(?![ \t]*(?:\[|■|□))[^\n]+)?)/im);
+    if (chdM) {
+      var cv = chdM[1].replace(/\n/g,' ').trim().replace(/_+$','').trim();
+      if (cv.length>1 && !/^[_\s]+$/.test(cv)) row[83]=cv;
+    }
   }
-  // Abdominal — 直接找冒號後的描述文字
-  var abMatch = text.match(/(?:\[v\]|■|(?:(?:^|[ \t])v[ \t]))\s*Other significant abnormal abdominal[^:\n]*:\s*([^\n\[■□_][^\n]+)/im);
-  if (abMatch) {
+  // Abdominal — 支援有冒號/無冒號/底線/跨行格式
+  var abChk = text.match(/(?:\[v\]|■|(?:(?:^|[ \t])v[ \t]))\s*Other significant abnormal abdominal/im);
+  if (abChk) {
     row[84]='T';
-    var abv = abMatch[1].trim();
-    if (!/^[_\s]+$/.test(abv) && abv.length>1) row[85]=abv;
+    var abBlock = text.slice(abChk.index);
+    var abLines = abBlock.split('\n');
+    var abCombined = abLines[0];
+    if (abLines.length > 1 && /^\s+or\s/i.test(abLines[1])) {
+      abCombined = abCombined + ' ' + abLines[1].trim();
+    }
+    // 找 scan 後面的描述 (支援: scan: / scan  / scan__ / scan_)
+    var abDesc = abCombined.match(/(?:CT\s+)?scan\s*[:\s_]+\s*([^\n\[■□_][^\n_]*)/i);
+    var abv = '';
+    if (abDesc) {
+      abv = abDesc[1].trim().replace(/_+$','').trim();
+    }
+    if (abv.length > 1 && !/^[_\s]+$/.test(abv)) row[85] = abv;
   }
 
   // 非標準欄位 (S/p cholecystectomy, Rib old fracture 等)
@@ -509,6 +531,10 @@ function validate(row) {
     var ratio=parseFloat(row[9])/parseFloat(row[8]);
     if (ratio<20||ratio>90) w.push('DLP/CTDIvol 比值 '+ratio.toFixed(1)+'，超出 20-90 範圍');
   }
+  // 100 字限制（格式規範：欄位 84/86 限 100 字）
+  if (row[83] && row[83].length > 100) w.push('Other chest findings 超過 100 字（'+row[83].length+' 字），請手動截短後上傳');
+  if (row[85] && row[85].length > 100) w.push('Abdominal/neck findings 超過 100 字（'+row[85].length+' 字），請手動截短後上傳');
+  if (row[77] && row[77].length > 100) w.push('Other Lung Findings 描述超過 100 字（'+row[77].length+' 字），請手動截短');
   return {w:w,e:e};
 }
 
